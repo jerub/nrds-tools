@@ -2,6 +2,7 @@
 
 """Checks pilots mentioned in the EVE chatlogs against a KOS list."""
 
+import dbhash
 from evelink import api, eve
 from evelink.cache import shelf
 import sys, string, os, tempfile, time, json, urllib2, urllib
