@@ -3,6 +3,8 @@ import py2exe
 import os
 import sys
 
+sys.path.append('evelink-api')
+
 if len(sys.argv) == 1:
   sys.argv.append('py2exe')
 
