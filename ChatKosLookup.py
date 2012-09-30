@@ -4,7 +4,7 @@
 
 import dbhash
 from evelink import api, eve
-from evelink.cache import shelf
+from evelink.cache.sqlite import SqliteCache
 import sys, string, os, tempfile, time, json, urllib2, urllib
 
 KOS_CHECKER_URL = 'http://kos.cva-eve.org/api/?c=json&type=unit&%s'
@@ -43,7 +43,7 @@ class KosChecker:
   def __init__(self):
     # Set up caching.
     cache_file = os.path.join(tempfile.gettempdir(), 'koscheck')
-    self.cache = shelf.ShelveCache(cache_file)
+    self.cache = SqliteCache(cache_file)
 
     self.api = api.API(cache=self.cache)
     self.eve = eve.EVE(api=self.api)
@@ -121,8 +121,8 @@ class KosChecker:
 
   def loop(self, filename, handler):
     """Performs KOS processing on each line read from the log file.
-    
-    handler is a function of 3 args: (kos, notkos, error) that is called 
+
+    handler is a function of 3 args: (kos, notkos, error) that is called
     every time there is a new KOS result.
     """
     tailer = FileTailer(filename)
