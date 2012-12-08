@@ -64,6 +64,13 @@ class MainFrame(wx.Frame):
     directory containing the python modules.
     """
     try:
+      loc = wx.IconLocation(sys.argv[0], 0)
+      self.SetIcon(wx.IconFromLocation(loc))
+      return
+    except:
+      pass
+
+    try:
       icon_path = os.path.join(os.path.dirname(__file__), 'icon.ico')
     except NameError:
       # __file__ does not exist
