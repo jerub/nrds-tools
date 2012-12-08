@@ -121,7 +121,7 @@ class MainFrame(wx.Frame):
     self.SetLabel("Kill On Sight")
 
 if __name__ == '__main__':
-  app = wx.App()
+  app = wx.App(redirect=False)
   frame = MainFrame(None, -1, 'KOS Checker')
   app.MainLoop()
 
