@@ -5,6 +5,7 @@
 import datetime
 import dbhash
 import glob
+import re
 import wx
 from evelink import api, eve
 from evelink.cache.sqlite import SqliteCache
@@ -15,9 +16,19 @@ NPC = 'npc'
 LASTCORP = 'lastcorp'
 
 class FileTailer:
+  MATCH = re.compile(
+      r'\[ (?P<date>\d+\.\d+\.\d+) (?P<time>\d+:\d+:\d+) \] '
+      r'(?P<pilot>[a-z]+(?: [a-z]+)?) > '
+      r'(?:xxx|fff) (?P<names>[a-z ]+)'
+      r'(?:#(?P<comment>.*))?',
+      re.IGNORECASE)
+
   def __init__(self, filename):
     self.filename = filename
     self.handle = open(filename, 'rb')
+
+  def close(self):
+    self.handle.close()
 
   def poll(self):
     size = os.fstat(self.handle.fileno()).st_size
@@ -26,22 +37,27 @@ class FileTailer:
       line = self.handle.readline()
       where = self.handle.tell()
 
-      sanitized = ''.join([x for x in line if x in string.printable and
-                                              x not in ['\n', '\r']])
-      if '> xxx ' not in sanitized:
-        continue
-      left, command = sanitized.split('> xxx ', 1)
-      timestamp = left.split(']', 1)[0].split(' ')[2]
-      person = left.split(']', 1)[1].strip()
-      mashup = command.split('#', 1)
-      names = [n.strip() for n in mashup[0].split('  ')]
-      if len(mashup) > 1:
-        comment = '[%s] %s > %s' % (timestamp, person, mashup[1].strip())
-      else:
-        comment = '[%s] %s >' % (timestamp, person)
-      return (names, comment)
+      answer = self.check(line)
+      if answer:
+        return answer
+
     return (None, None)
 
+  def check(self, line):
+    sanitized = ''.join([x for x in line if x in string.printable and
+                                            x not in ['\n', '\r']])
+    m = self.MATCH.match(sanitized)
+    if not m:
+      return None
+
+    timestamp = m.group('time')
+    pilot = m.group('pilot')
+    names = [n.strip() for n in m.group('names').split('  ')]
+    if m.group('comment'):
+      comment = '[%s] %s > %s' % (timestamp, pilot, m.group('comment').strip())
+    else:
+      comment = '[%s] %s >' % (timestamp, pilot)
+    return (names, comment)
 
 class DirectoryTailer:
   def __init__(self, path):
