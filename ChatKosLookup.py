@@ -2,7 +2,10 @@
 
 """Checks pilots mentioned in the EVE chatlogs against a KOS list."""
 
+import datetime
 import dbhash
+import glob
+import wx
 from evelink import api, eve
 from evelink.cache.sqlite import SqliteCache
 import sys, string, os, tempfile, time, json, urllib2, urllib
@@ -13,29 +16,60 @@ LASTCORP = 'lastcorp'
 
 class FileTailer:
   def __init__(self, filename):
+    self.filename = filename
     self.handle = open(filename, 'rb')
-    self.where = 0
 
   def poll(self):
-    self.where = self.handle.tell()
-    line = self.handle.readline()
-    if not line:
-      self.handle.seek(self.where)
-      return (None, None)
-    else:
+    size = os.fstat(self.handle.fileno()).st_size
+    where = self.handle.tell()
+    while size > where:
+      line = self.handle.readline()
+      where = self.handle.tell()
+
       sanitized = ''.join([x for x in line if x in string.printable and
                                               x not in ['\n', '\r']])
-      if not '> xxx ' in sanitized:
-        return (None, None)
+      if '> xxx ' not in sanitized:
+        continue
       left, command = sanitized.split('> xxx ', 1)
       timestamp = left.split(']', 1)[0].split(' ')[2]
       person = left.split(']', 1)[1].strip()
       mashup = command.split('#', 1)
-      names = mashup[0]
-      comment = '[%s] %s >' % (timestamp, person)
+      names = [n.strip() for n in mashup[0].split('  ')]
       if len(mashup) > 1:
         comment = '[%s] %s > %s' % (timestamp, person, mashup[1].strip())
-      return (names.split('  '), comment)
+      else:
+        comment = '[%s] %s >' % (timestamp, person)
+      return (names, comment)
+    return (None, None)
+
+
+class DirectoryTailer:
+  def __init__(self, path):
+    self.path = path
+    self.watchers = {}
+    self.mtime = 0
+
+    for x in iter(self.poll, (None, None)):
+      pass
+
+  def poll(self):
+    st_mtime = os.stat(self.path).st_mtime
+    if st_mtime != self.mtime:
+      self.mtime = st_mtime
+      today = datetime.date.today().strftime('%Y%m%d')
+      yesterday = (datetime.date.today() - datetime.timedelta(days=1)
+          ).strftime('%Y%m%d')
+      today_glob = os.path.join(self.path, '*_{}_*.txt'.format(today))
+      yesterday_glob = os.path.join(self.path, '*_{}_*.txt'.format(yesterday))
+      for filename in glob.glob(today_glob) + glob.glob(yesterday_glob):
+        if filename not in self.watchers:
+          self.watchers[filename] = FileTailer(filename)
+
+    for watcher in self.watchers.itervalues():
+      for answer in iter(watcher.poll, (None, None)):
+        return answer
+    return (None, None)
+
 
 class KosChecker:
   """Maintains API state and performs KOS checks."""

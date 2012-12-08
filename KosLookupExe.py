@@ -2,6 +2,7 @@ import ctypes
 import ctypes.wintypes
 import datetime
 import os
+import sys
 
 import wx
 
@@ -43,13 +44,9 @@ class MainFrame(wx.Frame):
   def __init__(self, *args, **kwargs):
     wx.Frame.__init__(self, *args, **kwargs)
     self.UpdateIcon()
-    self.working_file = self.GetWorkingFile()
-    if not self.working_file:
-      self.Close()
-      return
-    self.UpdateTitle(self.working_file)
+    self.UpdateTitle()
     self.checker = ChatKosLookup.KosChecker()
-    self.tailer = ChatKosLookup.FileTailer(self.working_file)
+    self.tailer = ChatKosLookup.DirectoryTailer(GetEveLogsDir())
     self.labels = []
     self.text_boxes = []
     for i in xrange(100):
@@ -113,30 +110,8 @@ class MainFrame(wx.Frame):
       self.text_boxes[i].SetForegroundColour(color)
       self.text_boxes[i].SetLabel(label)
 
-  def UpdateTitle(self, working_file):
-    filename = os.path.basename(working_file)
-    name = filename.rsplit('_', 2)[0]
-    name.replace('_', ' ')
-    self.SetLabel(name)
-
-  def GetWorkingFile(self):
-    today = datetime.date.today().strftime('%Y%m%d')
-    wildcards = [
-        'Fleet logs (today)', 'Fleet_%s_*.txt' % today,
-        'Fleet logs (all)', 'Fleet*.txt',
-        'All logs (today)', '*_%s_*.txt' % today,
-        'All logs', '*.txt']
-    dialog = wx.FileDialog(
-        self,
-        'Choose a log file',
-        GetEveLogsDir(),
-        style=wx.OPEN,
-        wildcard='|'.join(wildcards))
-    result = dialog.ShowModal()
-    if result != wx.ID_OK:
-      return None
-    return dialog.GetPath()
-
+  def UpdateTitle(self):
+    self.SetLabel("Kill On Sight")
 
 if __name__ == '__main__':
   app = wx.App()
