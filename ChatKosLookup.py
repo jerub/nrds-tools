@@ -3,6 +3,7 @@
 """Checks pilots mentioned in the EVE chatlogs against a KOS list."""
 
 import codecs
+import collections
 import datetime
 import dbhash
 import glob
@@ -15,6 +16,8 @@ import sys, string, os, tempfile, time, json, urllib2, urllib
 KOS_CHECKER_URL = 'http://kos.cva-eve.org/api/?c=json&type=unit&%s'
 NPC = 'npc'
 LASTCORP = 'lastcorp'
+
+Entry = collections.namedtuple('Entry', 'pilots comment linekey')
 
 class FileTailer:
   MATCH = re.compile(
@@ -48,21 +51,27 @@ class FileTailer:
       if answer:
         return answer
 
-    return (None, None)
+    return None
 
   def check(self, line):
     m = self.MATCH.match(line)
     if not m:
       return None
 
-    timestamp = m.group('time')
+    timestamp = datetime.datetime.strptime(
+        m.group('date') + ' ' + m.group('time'),
+        '%Y.%m.%d %H:%M:%S')
+    time = m.group('time')
     pilot = m.group('pilot')
-    names = [n.strip() for n in m.group('names').split('  ')]
+    names = tuple(n.strip() for n in m.group('names').split('  '))
     if m.group('comment'):
-      comment = '[%s] %s > %s' % (timestamp, pilot, m.group('comment').strip())
+      comment = '[%s] %s > %s' % (time, pilot, m.group('comment').strip())
     else:
-      comment = '[%s] %s >' % (timestamp, pilot)
-    return (names, comment)
+      comment = '[%s] %s >' % (time, pilot)
+
+    linekey = (timestamp.hour, timestamp.minute, pilot, names, m.group('comment'))
+    return Entry(names, comment, linekey)
+
 
 class DirectoryTailer:
   def __init__(self, path):
@@ -70,7 +79,8 @@ class DirectoryTailer:
     self.watchers = {}
     self.mtime = 0
 
-    for x in iter(self.poll, (None, None)):
+    # exhaust all the log lines to start with
+    for x in iter(self.poll, None):
       pass
 
   def poll(self):
@@ -87,9 +97,9 @@ class DirectoryTailer:
           self.watchers[filename] = FileTailer(filename)
 
     for watcher in self.watchers.itervalues():
-      for answer in iter(watcher.poll, (None, None)):
+      for answer in iter(watcher.poll, None):
         return answer
-    return (None, None)
+    return None
 
 
 class KosChecker:

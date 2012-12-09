@@ -55,6 +55,7 @@ class MainFrame(wx.Frame):
     self.SetSize((150, 800))
     self.SetBackgroundColour('white')
     self.Show()
+    self.recent_lines = []
     self.KosCheckerPoll()
 
   def UpdateIcon(self):
@@ -79,38 +80,50 @@ class MainFrame(wx.Frame):
       self.SetIcon(wx.Icon(icon_path, wx.BITMAP_TYPE_ICO))
 
   def KosCheckerPoll(self):
-    entry, comment = self.tailer.poll()
-    if not entry:
-      wx.FutureCall(1000, self.KosCheckerPoll)
-      return
-    kos, not_kos, error = self.checker.koscheck_logentry(entry)
-    new_labels = []
-    if comment:
-      new_labels.append(('black', comment))
-    if kos or not_kos:
-      new_labels.append(('black',
-                        'KOS: %d  Not KOS: %d' % (len(kos), len(not_kos))))
-    if kos:
-      self.PlayKosAlertSound()
-      new_labels.extend([('red', u'%s %s (%s)' % (MINUS_TAG, p, reason))
-                         for (p, reason) in kos])
-    if not_kos:
+    play_sound = False
+    for entry in iter(self.tailer.poll, None):
+      if entry.linekey in self.recent_lines:
+        continue
+      self.recent_lines.append(entry.linekey)
+
+      kos, not_kos, error = self.checker.koscheck_logentry(entry.pilots)
+      new_labels = []
+      if entry.comment:
+        new_labels.append(('black', entry.comment))
+      if kos or not_kos:
+        new_labels.append(('black',
+                           'KOS: %d  Not KOS: %d' % (len(kos), len(not_kos))))
       if kos:
-        new_labels.append(('black', ' '))
-      new_labels.extend([('blue', '%s %s' % (PLUS_TAG, p)) for p in not_kos])
-    if error:
-      new_labels.append(('black', 'Error: %d' % len(error)))
-      new_labels.extend([('black', p) for p in error])
-    if new_labels:
-      new_labels.append(('black', DIVIDER))
-    self.labels = new_labels + self.labels
-    self.labels = self.labels[:100]
+        play_sound = True
+        new_labels.extend([('red', u'%s %s (%s)' % (MINUS_TAG, p, reason))
+                           for (p, reason) in kos])
+      if not_kos:
+        if kos:
+          new_labels.append(('black', ' '))
+        new_labels.extend([('blue', '%s %s' % (PLUS_TAG, p)) for p in not_kos])
+      if error:
+        new_labels.append(('black', 'Error: %d' % len(error)))
+        new_labels.extend([('black', p) for p in error])
+      if new_labels:
+        new_labels.append(('black', DIVIDER))
+      self.labels = new_labels + self.labels
+      self.labels = self.labels[:100]
+
+    self.recent_lines = self.recent_lines[-100:]
+
+    if play_sound:
+      self.PlayKosAlertSound()
     self.UpdateLabels()
-    wx.FutureCall(100, self.KosCheckerPoll)
+    wx.FutureCall(1000, self.KosCheckerPoll)
 
   def PlayKosAlertSound(self):
+    global winsound
     if winsound:
-      winsound.PlaySound("SystemQuestion", winsound.SND_ALIAS)
+      try:
+        winsound.PlaySound("SystemQuestion", winsound.SND_ALIAS)
+      except:
+        # such as when there's no SystemQuestion sound, reported by some users.
+        winsound = False
 
   def UpdateLabels(self):
     for i, (color, label) in enumerate(self.labels):
