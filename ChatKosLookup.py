@@ -2,6 +2,7 @@
 
 """Checks pilots mentioned in the EVE chatlogs against a KOS list."""
 
+import codecs
 import datetime
 import dbhash
 import glob
@@ -17,15 +18,21 @@ LASTCORP = 'lastcorp'
 
 class FileTailer:
   MATCH = re.compile(
-      r'\[ (?P<date>\d+\.\d+\.\d+) (?P<time>\d+:\d+:\d+) \] '
-      r'(?P<pilot>[a-z]+(?: [a-z]+)?) > '
-      r'(?:xxx|fff) (?P<names>[a-z ]+)'
-      r'(?:#(?P<comment>.*))?',
+      # each line starts with a byte order marker
+      u'\ufeff?'
+      # [ date time ]
+      ur'\[ (?P<date>\d+\.\d+\.\d+) (?P<time>\d+:\d+:\d+) \] '
+      # Pilot Name >
+      ur'(?P<pilot>[a-z0-9\']+(?: [a-z0-9\']+)?) > '
+      # xxx or fff (any case), then the names of pilots
+      ur'(?:xxx|fff) (?P<names>[a-z0-9\' ]+)'
+      # A hash then a comment
+      ur'(?:#(?P<comment>.*))?',
       re.IGNORECASE)
 
-  def __init__(self, filename):
+  def __init__(self, filename, encoding='utf-16'):
     self.filename = filename
-    self.handle = open(filename, 'rb')
+    self.handle = codecs.open(filename, 'rb', encoding)
 
   def close(self):
     self.handle.close()
@@ -44,9 +51,7 @@ class FileTailer:
     return (None, None)
 
   def check(self, line):
-    sanitized = ''.join([x for x in line if x in string.printable and
-                                            x not in ['\n', '\r']])
-    m = self.MATCH.match(sanitized)
+    m = self.MATCH.match(line)
     if not m:
       return None
 

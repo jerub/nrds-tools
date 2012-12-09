@@ -35,6 +35,16 @@ class TestFileTailer(unittest.TestCase):
     answer = self.ft.check("[ 2012.07.29 00:23:56 ] Foo Bar > xxx Bad Pilot")
     self.assertEquals(answer, (['Bad Pilot'], '[00:23:56] Foo Bar >'))
 
+  def test_check_kos_gq(self):
+    self.ft = ChatKosLookup.FileTailer(self.tmpfile)
+    answer = self.ft.check("[ 2012.07.29 00:23:56 ] Foo Bar > xxx GQSmooth00")
+    self.assertEquals(answer, (['GQSmooth00'], '[00:23:56] Foo Bar >'))
+
+  def test_check_kos_obrian(self):
+    self.ft = ChatKosLookup.FileTailer(self.tmpfile)
+    answer = self.ft.check("[ 2012.07.29 00:23:56 ] O'Goode > xxx Bad O'brian")
+    self.assertEquals(answer, (['Bad O\'brian'], '[00:23:56] O\'Goode >'))
+
   def tearDown(self):
     self.ft.close()
     os.unlink(self.tmpfile)
