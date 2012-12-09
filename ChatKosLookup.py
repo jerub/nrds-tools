@@ -26,9 +26,9 @@ class FileTailer:
       # [ date time ]
       ur'\[ (?P<date>\d+\.\d+\.\d+) (?P<time>\d+:\d+:\d+) \] '
       # Pilot Name >
-      ur'(?P<pilot>[a-z0-9\']+(?: [a-z0-9\']+)?) > '
+      ur'(?P<pilot>[a-z0-9\'\-]+(?: [a-z0-9\'\-]+)?) > '
       # xxx or fff (any case), then the names of pilots
-      ur'(?:xxx|fff) (?P<names>[a-z0-9\' ]+)'
+      ur'(?:xxx|fff) (?P<names>[a-z0-9\'\- ]+)'
       # A hash then a comment
       ur'(?:#(?P<comment>.*))?',
       re.IGNORECASE)
@@ -65,11 +65,13 @@ class FileTailer:
     pilot = m.group('pilot')
     names = tuple(n.strip() for n in m.group('names').split('  '))
     if m.group('comment'):
-      comment = '[%s] %s > %s' % (time, pilot, m.group('comment').strip())
+      suffix = m.group('comment').strip()
+      comment = '[%s] %s > %s' % (time, pilot, suffix)
     else:
+      suffix = None
       comment = '[%s] %s >' % (time, pilot)
 
-    linekey = (timestamp.hour, timestamp.minute, pilot, names, m.group('comment'))
+    linekey = (timestamp.hour, timestamp.minute, pilot, names, suffix)
     return Entry(names, comment, linekey)
 
 
