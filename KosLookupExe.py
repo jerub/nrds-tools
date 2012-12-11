@@ -1,10 +1,14 @@
+import cgi
 import ctypes
 import ctypes.wintypes
 import datetime
 import os
 import sys
+import urllib
+import webbrowser
 
 import wx
+import wx.html
 
 try:
   import winsound
@@ -40,6 +44,11 @@ def GetEveLogsDir():
   return None
 
 
+class wxHTML(wx.html.HtmlWindow):
+  def OnLinkClicked(self, link):
+    webbrowser.open(link.GetHref())
+
+
 class MainFrame(wx.Frame):
   def __init__(self, *args, **kwargs):
     wx.Frame.__init__(self, *args, **kwargs)
@@ -48,11 +57,8 @@ class MainFrame(wx.Frame):
     self.checker = ChatKosLookup.KosChecker()
     self.tailer = ChatKosLookup.DirectoryTailer(GetEveLogsDir())
     self.labels = []
-    self.text_boxes = []
-    for i in xrange(100):
-      text = wx.StaticText(self, -1, '', (5, 16 * i + 5))
-      self.text_boxes.append(text)
-    self.SetSize((150, 800))
+    self.html = wxHTML(self, style=wx.html.HW_SCROLLBAR_NEVER)
+    self.SetSize((300, 800))
     self.SetBackgroundColour('white')
     self.Show()
     self.recent_lines = []
@@ -81,7 +87,9 @@ class MainFrame(wx.Frame):
 
   def KosCheckerPoll(self):
     play_sound = False
+    action = False
     for entry in iter(self.tailer.poll, None):
+      action = True
       if entry.linekey in self.recent_lines:
         continue
       self.recent_lines.append(entry.linekey)
@@ -89,31 +97,35 @@ class MainFrame(wx.Frame):
       kos, not_kos, error = self.checker.koscheck_logentry(entry.pilots)
       new_labels = []
       if entry.comment:
-        new_labels.append(('black', entry.comment))
+        new_labels.append(entry.comment)
       if kos or not_kos:
-        new_labels.append(('black',
-                           'KOS: %d  Not KOS: %d' % (len(kos), len(not_kos))))
+        new_labels.append('KOS: %d  Not KOS: %d' % (len(kos), len(not_kos)))
       if kos:
         play_sound = True
-        new_labels.extend([('red', u'%s %s (%s)' % (MINUS_TAG, p, reason))
-                           for (p, reason) in kos])
+        new_labels.extend(
+            [(u'<font color="red">{minus} <a href="{kospath}">{pilot}</a> ({reason})</font>'.format(
+                minus=MINUS_TAG,
+                kospath="http://kos.cva-eve.org/?q=" + urllib.quote(p),
+                pilot=cgi.escape(p),
+                reason=cgi.escape(reason)))
+             for (p, reason) in kos])
       if not_kos:
         if kos:
-          new_labels.append(('black', ' '))
-        new_labels.extend([('blue', '%s %s' % (PLUS_TAG, p)) for p in not_kos])
+          new_labels.append('')
+        new_labels.extend([('<font color="blue">%s %s</font>' % (PLUS_TAG, p)) for p in not_kos])
       if error:
-        new_labels.append(('black', 'Error: %d' % len(error)))
-        new_labels.extend([('black', p) for p in error])
+        new_labels.append('Error: %d' % len(error))
+        new_labels.extend(error)
       if new_labels:
-        new_labels.append(('black', DIVIDER))
+        new_labels.append(DIVIDER)
       self.labels = new_labels + self.labels
       self.labels = self.labels[:100]
 
-    self.recent_lines = self.recent_lines[-100:]
-
     if play_sound:
       self.PlayKosAlertSound()
-    self.UpdateLabels()
+    if action:
+      self.recent_lines = self.recent_lines[-100:]
+      self.UpdateLabels()
     wx.FutureCall(1000, self.KosCheckerPoll)
 
   def PlayKosAlertSound(self):
@@ -126,9 +138,7 @@ class MainFrame(wx.Frame):
         winsound = False
 
   def UpdateLabels(self):
-    for i, (color, label) in enumerate(self.labels):
-      self.text_boxes[i].SetForegroundColour(color)
-      self.text_boxes[i].SetLabel(label)
+    self.html.SetPage('<br>'.join(self.labels))
 
   def UpdateTitle(self):
     self.SetLabel("Kill On Sight")
