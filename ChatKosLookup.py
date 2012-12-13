@@ -36,12 +36,15 @@ class FileTailer:
   def __init__(self, filename, encoding='utf-16'):
     self.filename = filename
     self.handle = codecs.open(filename, 'rb', encoding)
+    self.mtime = 0
 
   def close(self):
     self.handle.close()
 
   def poll(self):
-    size = os.fstat(self.handle.fileno()).st_size
+    fstat = os.fstat(self.handle.fileno())
+    size = fstat.st_size
+    self.mtime = fstat.st_mtime
     where = self.handle.tell()
     while size > where:
       line = self.handle.readline()
@@ -52,6 +55,9 @@ class FileTailer:
         return answer
 
     return None
+
+  def last_update(self):
+    return self.mtime
 
   def check(self, line):
     m = self.MATCH.match(line)
@@ -84,6 +90,9 @@ class DirectoryTailer:
     # exhaust all the log lines to start with
     for x in iter(self.poll, None):
       pass
+
+  def last_update(self):
+    return max(w.last_update() for w in self.watchers.itervalues())
 
   def poll(self):
     st_mtime = os.stat(self.path).st_mtime

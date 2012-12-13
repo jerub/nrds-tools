@@ -18,7 +18,6 @@ except ImportError:
 import ChatKosLookup
 
 
-DIVIDER = '-' * 40
 PLUS_TAG = '[+]'
 MINUS_TAG = u'[\u2212]'  # Unicode MINUS SIGN
 
@@ -58,10 +57,13 @@ class MainFrame(wx.Frame):
     self.tailer = ChatKosLookup.DirectoryTailer(GetEveLogsDir())
     self.labels = []
     self.html = wxHTML(self, style=wx.html.HW_SCROLLBAR_NEVER)
+    self.status_bar = self.CreateStatusBar(1)
+    self.status_bar.PushStatusText("Starting...")
     self.SetSize((300, 800))
     self.SetBackgroundColour('white')
     self.Show()
     self.recent_lines = []
+    self.UpdateLabels()
     self.KosCheckerPoll()
 
   def UpdateIcon(self):
@@ -88,13 +90,18 @@ class MainFrame(wx.Frame):
   def KosCheckerPoll(self):
     play_sound = False
     action = False
+    self.status_bar.PushStatusText("Checking for KOS pilots")
     for entry in iter(self.tailer.poll, None):
       action = True
       if entry.linekey in self.recent_lines:
         continue
       self.recent_lines.append(entry.linekey)
 
+      self.status_bar.PushStatusText("KOS Checking {} pilots".format(
+        len(entry.pilots)))
       kos, not_kos, error = self.checker.koscheck_logentry(entry.pilots)
+      self.status_bar.PopStatusText()
+
       new_labels = []
       if entry.comment:
         new_labels.append(entry.comment)
@@ -117,15 +124,17 @@ class MainFrame(wx.Frame):
         new_labels.append('Error: %d' % len(error))
         new_labels.extend(error)
       if new_labels:
-        new_labels.append(DIVIDER)
+        new_labels.append('<hr>')
       self.labels = new_labels + self.labels
       self.labels = self.labels[:100]
+    self.status_bar.PopStatusText()
 
     if play_sound:
       self.PlayKosAlertSound()
     if action:
       self.recent_lines = self.recent_lines[-100:]
       self.UpdateLabels()
+
     wx.FutureCall(1000, self.KosCheckerPoll)
 
   def PlayKosAlertSound(self):
@@ -138,6 +147,15 @@ class MainFrame(wx.Frame):
         winsound = False
 
   def UpdateLabels(self):
+    self.status_bar.PopStatusText()
+    last_update = self.tailer.last_update()
+    if last_update:
+      status = "Last update: {}".format(
+          datetime.datetime.fromtimestamp(last_update
+            ).strftime("%Y-%m-%d %H:%M:%S"))
+    else:
+      status = "No logs found"
+    self.status_bar.PushStatusText(status)
     self.html.SetPage('<br>'.join(self.labels))
 
   def UpdateTitle(self):
