@@ -15,6 +15,12 @@ if os.path.exists('icon.ico'):
 setup(windows=[{'script': 'KosLookupExe.py',
                 'icon_resources': icon_resources}],
     options={'py2exe': {'dll_excludes': ['MSVCP90.dll'],
-                        'bundle_files': 1}},
+                        'bundle_files': 1,
+                        'compressed': 1,
+                        'ascii': 1,
+                        'excludes': ['unittest'],
+                        'includes': ['codecs',
+                                     'encodings.utf_16',
+                                     'encodings.hex_codec']}},
     zipfile=None)
 
