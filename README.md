@@ -12,4 +12,4 @@ Release version:
 https://github.com/downloads/eve-val/nrds-tools/KosLookup-0.6.zip
 
 Jerub's Beta version:
-https://github.com/downloads/jerub/nrds-tools/KosLookup-Beta.exe
+http://www.nrds.eu/downloads/KosLookup.exe
