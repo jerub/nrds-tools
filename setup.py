@@ -20,6 +20,7 @@ setup(windows=[{'script': 'KosLookupExe.py',
                         'ascii': 1,
                         'excludes': ['unittest'],
                         'includes': ['codecs',
+                                     'encodings.ascii',
                                      'encodings.utf_16',
                                      'encodings.hex_codec']}},
     zipfile=None)
