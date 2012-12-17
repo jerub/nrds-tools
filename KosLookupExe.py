@@ -88,12 +88,13 @@ class MainFrame(wx.Frame):
     file, but when running from source, this method pulls it in from the
     directory containing the python modules.
     """
-    try:
-      loc = wx.IconLocation(sys.argv[0], 0)
-      self.SetIcon(wx.IconFromLocation(loc))
-      return
-    except:
-      pass
+    if sys.argv[0].endswith('.exe'):
+      try:
+        loc = wx.IconLocation(sys.argv[0], 0)
+        self.SetIcon(wx.IconFromLocation(loc))
+        return
+      except:
+        pass
 
     try:
       icon_path = os.path.join(os.path.dirname(__file__), 'icon.ico')
