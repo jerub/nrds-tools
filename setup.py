@@ -17,11 +17,6 @@ setup(windows=[{'script': 'KosLookupExe.py',
     options={'py2exe': {'dll_excludes': ['MSVCP90.dll'],
                         'bundle_files': 1,
                         'compressed': 1,
-                        'ascii': 1,
-                        'excludes': ['unittest'],
-                        'includes': ['codecs',
-                                     'encodings.ascii',
-                                     'encodings.utf_16',
-                                     'encodings.hex_codec']}},
+                        'excludes': ['unittest']}}, 
     zipfile=None)
 
