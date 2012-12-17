@@ -18,7 +18,6 @@ except ImportError:
 import ChatKosLookup
 
 
-PLUS_TAG = '[+]'
 MINUS_TAG = u'[\u2212]'  # Unicode MINUS SIGN
 
 
@@ -106,7 +105,7 @@ class MainFrame(wx.Frame):
       if entry.comment:
         new_labels.append(entry.comment)
       if kos or not_kos:
-        new_labels.append('KOS: %d  Not KOS: %d' % (len(kos), len(not_kos)))
+        new_labels.append('KOS: {}  Not KOS: {}'.format(len(kos), len(not_kos)))
       if kos:
         play_sound = True
         new_labels.extend(
@@ -119,9 +118,9 @@ class MainFrame(wx.Frame):
       if not_kos:
         if kos:
           new_labels.append('')
-        new_labels.extend([('<font color="blue">%s %s</font>' % (PLUS_TAG, p)) for p in not_kos])
+        new_labels.extend([('<font color="blue">[+] {}</font>'.format(p)) for p in not_kos])
       if error:
-        new_labels.append('Error: %d' % len(error))
+        new_labels.append('Error: {}'.format(len(error)))
         new_labels.extend(error)
       if new_labels:
         new_labels.append('<hr>')
