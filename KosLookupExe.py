@@ -4,6 +4,7 @@ import ctypes.wintypes
 import datetime
 import os
 import sys
+import time
 import urllib
 import webbrowser
 
@@ -62,8 +63,24 @@ class MainFrame(wx.Frame):
     self.SetBackgroundColour('white')
     self.Show()
     self.recent_lines = []
+    self.CreateMenu()
     self.UpdateLabels()
     self.KosCheckerPoll()
+
+  def CreateMenu(self):
+    file_menu = wx.Menu()
+    help_menu = wx.Menu()
+    reset_id = wx.NewId()
+    help_menu.Append(wx.ID_ABOUT, "About")
+    file_menu.Append(reset_id, "Reset")
+    file_menu.Append(wx.ID_EXIT, "Exit")
+    menu_bar = wx.MenuBar()
+    menu_bar.Append(file_menu, "File")
+    menu_bar.Append(help_menu, "Help")
+    self.SetMenuBar(menu_bar)
+    self.Bind(wx.EVT_MENU, self.OnReset, id=reset_id)
+    self.Bind(wx.EVT_MENU, self.OnExit, id=wx.ID_EXIT)
+    self.Bind(wx.EVT_MENU, self.OnAbout, id=wx.ID_ABOUT)
 
   def UpdateIcon(self):
     """
@@ -159,6 +176,34 @@ class MainFrame(wx.Frame):
 
   def UpdateTitle(self):
     self.SetLabel("Kill On Sight")
+
+  def OnReset(self, event):
+    logs_dir = GetEveLogsDir()
+    self.tailer = ChatKosLookup.DirectoryTailer(logs_dir)
+    last_update = self.tailer.last_update()
+    self.labels = []
+    self.labels.append('Checking logs in {}'.format(logs_dir))
+    if last_update:
+      minutes_ago = int((time.time() - last_update) / 60)
+      last_update = datetime.datetime.fromtimestamp(last_update
+            ).strftime("%Y-%m-%d %H:%M:%S")
+      self.labels.append(
+          'Reset Complete: reading {} log files'.format(
+              len(self.tailer.watchers)))
+      self.labels.append('last update: {}, {} minutes ago'.format(
+              last_update, minutes_ago))
+    else:
+      self.labels.append(
+          'Reset Complete, no log files found')
+    self.UpdateLabels()
+
+  def OnAbout(self, event):
+    dlg = wx.MessageDialog(self, "KOS Lookup\nSee http://nrds.eu/", 'About', wx.OK | wx.ICON_INFORMATION)
+    dlg.ShowModal()
+    dlg.Destroy()
+
+  def OnExit(self, event):
+    self.Close()
 
 if __name__ == '__main__':
   app = wx.App(redirect=False)
