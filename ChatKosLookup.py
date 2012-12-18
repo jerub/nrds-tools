@@ -36,7 +36,11 @@ class FileTailer:
   def __init__(self, filename, encoding='utf-16'):
     self.filename = filename
     self.handle = codecs.open(filename, 'rb', encoding)
-    self.mtime = 0
+
+    # seek to the end
+    fstat = os.fstat(self.handle.fileno())
+    self.handle.seek(fstat.st_size)
+    self.mtime = fstat.st_mtime
 
   def close(self):
     self.handle.close()
@@ -87,12 +91,14 @@ class DirectoryTailer:
     self.watchers = {}
     self.mtime = 0
 
-    # exhaust all the log lines to start with
-    for x in iter(self.poll, None):
+    for answer in iter(self.poll, None):
       pass
 
   def last_update(self):
-    return max(w.last_update() for w in self.watchers.itervalues())
+    if self.watchers:
+      return max(w.last_update() for w in self.watchers.itervalues())
+    else:
+      return None
 
   def poll(self):
     st_mtime = os.stat(self.path).st_mtime
