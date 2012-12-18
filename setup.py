@@ -12,7 +12,8 @@ icon_resources = []
 if os.path.exists('icon.ico'):
   icon_resources.append((1, "icon.ico"))
 
-setup(windows=[{'script': 'KosLookupExe.py',
+setup(windows=[{'script': 'main.py',
+                'dest_base': 'KosLookupExe',
                 'icon_resources': icon_resources}],
     options={'py2exe': {'dll_excludes': ['MSVCP90.dll'],
                         'bundle_files': 1,

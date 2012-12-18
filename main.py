@@ -1,0 +1,2 @@
+import KosLookupExe
+KosLookupExe.main()

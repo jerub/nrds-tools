@@ -3,10 +3,15 @@ import ctypes
 import ctypes.wintypes
 import datetime
 import os
+import shutil
 import sys
+import tempfile
 import time
 import urllib
+import urllib2
 import webbrowser
+import wx
+import zipfile
 
 import wx
 import wx.html
@@ -61,24 +66,28 @@ class MainFrame(wx.Frame):
     self.status_bar.PushStatusText("Starting...")
     self.SetSize((300, 800))
     self.SetBackgroundColour('white')
-    self.Show()
     self.recent_lines = []
     self.CreateMenu()
     self.UpdateLabels()
     self.KosCheckerPoll()
+    self.CheckArgs()
+    self.Show()
 
   def CreateMenu(self):
     file_menu = wx.Menu()
     help_menu = wx.Menu()
     reset_id = wx.NewId()
+    update_id = wx.NewId()
     help_menu.Append(wx.ID_ABOUT, "About")
     file_menu.Append(reset_id, "Reset")
+    file_menu.Append(update_id, "Update")
     file_menu.Append(wx.ID_EXIT, "Exit")
     menu_bar = wx.MenuBar()
     menu_bar.Append(file_menu, "File")
     menu_bar.Append(help_menu, "Help")
     self.SetMenuBar(menu_bar)
     self.Bind(wx.EVT_MENU, self.OnReset, id=reset_id)
+    self.Bind(wx.EVT_MENU, self.OnUpdate, id=update_id)
     self.Bind(wx.EVT_MENU, self.OnExit, id=wx.ID_EXIT)
     self.Bind(wx.EVT_MENU, self.OnAbout, id=wx.ID_ABOUT)
 
@@ -206,8 +215,82 @@ class MainFrame(wx.Frame):
   def OnExit(self, event):
     self.Close()
 
-if __name__ == '__main__':
+  def CheckArgs(self):
+    if not zipfile.is_zipfile(sys.executable):
+      return
+
+    if '/updated' in sys.argv:
+      for x in range(10):
+        try:
+          if os.path.exists(sys.argv[2]):
+            os.unlink(sys.argv[2])
+        except OSError:
+          time.sleep(.1)
+      dlg = wx.MessageDialog(self, "Updates Complete", 'KosUpdater', wx.OK | wx.ICON_INFORMATION)
+      dlg.ShowModal()
+      dlg.Destroy()
+      return
+
+    if '/update' in sys.argv:
+      realname = sys.argv[2]
+      while 1:
+        try:
+          shutil.copy(sys.executable, sys.argv[2])
+          break
+        except WindowsError as e:
+          time.sleep(.05)
+      wx.Execute("{} /updated {}".format(realname, sys.executable))
+      sys.exit()
+      return
+
+  def OnUpdate(self, event):
+    if not zipfile.is_zipfile(sys.executable):
+      return
+
+    files = self.FakeCheckUpdate()
+
+    with zipfile.PyZipFile(sys.executable, 'r') as z:
+      namelist = set(z.namelist())
+      edit = False
+      for filename, contents in list(files):
+        if filename not in namelist:
+          edit = True
+        elif z.read(filename) != contents:
+          edit = True
+        else:
+          files.remove((filename, contents))
+      if not edit:
+        dlg = wx.MessageDialog(self, "No Updates Found", 'KosUpdater', wx.OK | wx.ICON_INFORMATION)
+        dlg.ShowModal()
+        dlg.Destroy()
+        return
+
+    with tempfile.NamedTemporaryFile(suffix='.exe', delete=False) as tmpfile:
+      shutil.copy(sys.executable, tmpfile.name)
+    with zipfile.PyZipFile(tmpfile.name, 'a', compression=zipfile.ZIP_DEFLATED) as z:
+      for zinfo in list(z.filelist):
+        for name, contents in files:
+          if zinfo.filename.startswith(name):
+            z.filelist.remove(zinfo)
+      for filename, contents in files:
+        if filename not in namelist or z.read(filename) != contents:
+          z.writestr(filename, contents)
+
+    wx.Execute("{} /update {}".format(tmpfile.name, sys.executable))
+    sys.exit()
+
+  def FakeCheckUpdate(self):
+    """
+    Unimplemented. There is no spoon
+    """
+    return []
+
+
+def main():
   app = wx.App(redirect=False)
   frame = MainFrame(None, -1, 'KOS Checker')
   app.MainLoop()
 
+
+if __name__ == '__main__':
+  main()
