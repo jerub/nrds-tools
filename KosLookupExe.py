@@ -289,17 +289,18 @@ class MainFrame(wx.Frame):
     py2exe release.
     """
     try:
-      f = urllib2.urlopen('http://www.nrds.eu/download/update.zip')
-      update_zip = io.BytesIO()
+      f = urllib2.urlopen('http://www.nrds.eu/downloads/update.zip')
+      update_zip = io.BytesIO(f.read())
       z = zipfile.ZipFile(update_zip, 'r')
     except Exception as e:
       dlg = wx.MessageDialog(
-          self, 'Error retreiving update: {}'.format(e)
+          self, 'Error retreiving update: {}'.format(e),
           'KosUpdater', wx.OK | wx.ICON_INFORMATION)
       dlg.ShowModal()
       dlg.Destroy()
+      return []
 
-    return [(zinfo.filename, z.read(zinfo.filename)) for zinfo in z.namelist]
+    return [(filename, z.read(filename)) for filename in z.namelist()]
 
 
 def main():
