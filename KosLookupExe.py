@@ -2,6 +2,7 @@ import cgi
 import ctypes
 import ctypes.wintypes
 import datetime
+import io
 import os
 import shutil
 import sys
@@ -247,7 +248,7 @@ class MainFrame(wx.Frame):
     if not zipfile.is_zipfile(sys.executable):
       return
 
-    files = self.FakeCheckUpdate()
+    files = self.CheckForUpdate()
 
     with zipfile.PyZipFile(sys.executable, 'r') as z:
       namelist = set(z.namelist())
@@ -279,11 +280,26 @@ class MainFrame(wx.Frame):
     wx.Execute("{} /update {}".format(tmpfile.name, sys.executable))
     sys.exit()
 
-  def FakeCheckUpdate(self):
+  def CheckForUpdate(self):
     """
-    Unimplemented. There is no spoon
+    Will attempt to download the latest update from http://www.nrds.eu/
+
+    The update is served from http://www.nrds.eu/download/update.zip and
+    contains one or more python files, which will replace the files inside the 
+    py2exe release.
     """
-    return []
+    try:
+      f = urllib2.urlopen('http://www.nrds.eu/download/update.zip')
+      update_zip = io.BytesIO()
+      z = zipfile.ZipFile(update_zip, 'r')
+    except Exception as e:
+      dlg = wx.MessageDialog(
+          self, 'Error retreiving update: {}'.format(e)
+          'KosUpdater', wx.OK | wx.ICON_INFORMATION)
+      dlg.ShowModal()
+      dlg.Destroy()
+
+    return [(zinfo.filename, z.read(zinfo.filename)) for zinfo in z.namelist]
 
 
 def main():
