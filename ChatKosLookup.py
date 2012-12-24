@@ -104,13 +104,12 @@ class DirectoryTailer:
     st_mtime = os.stat(self.path).st_mtime
     if st_mtime != self.mtime:
       self.mtime = st_mtime
-      today = datetime.date.today().strftime('%Y%m%d')
-      yesterday = (datetime.date.today() - datetime.timedelta(days=1)
-          ).strftime('%Y%m%d')
-      today_glob = os.path.join(self.path, '*_{}_*.txt'.format(today))
-      yesterday_glob = os.path.join(self.path, '*_{}_*.txt'.format(yesterday))
-      for filename in glob.glob(today_glob) + glob.glob(yesterday_glob):
-        if filename not in self.watchers:
+      for name in os.listdir(self.path):
+        filename = os.path.join(self.path, name)
+        if filename in self.watchers:
+          continue
+        # anything within a day.
+        if abs(self.mtime - os.stat(filename).st_mtime) < 86400:
           self.watchers[filename] = FileTailer(filename)
 
     for watcher in self.watchers.itervalues():
