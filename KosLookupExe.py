@@ -209,7 +209,12 @@ class MainFrame(wx.Frame):
     self.UpdateLabels()
 
   def OnAbout(self, event):
-    dlg = wx.MessageDialog(self, "KOS Lookup\nSee http://nrds.eu/", 'About', wx.OK | wx.ICON_INFORMATION)
+    dlg = wx.MessageDialog(
+        self,
+        "KOS Lookup\nSee http://nrds.eu/\n"
+        "Version: 0.8b1",
+        'About',
+        wx.OK | wx.ICON_INFORMATION)
     dlg.ShowModal()
     dlg.Destroy()
 
