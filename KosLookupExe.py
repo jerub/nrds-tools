@@ -282,7 +282,7 @@ class MainFrame(wx.Frame):
         if filename not in namelist or z.read(filename) != contents:
           z.writestr(filename, contents)
 
-    wx.Execute("{} /update {}".format(tmpfile.name, sys.executable))
+    wx.Execute('{} /update "{}"'.format(tmpfile.name, sys.executable))
     sys.exit()
 
   def CheckForUpdate(self):
