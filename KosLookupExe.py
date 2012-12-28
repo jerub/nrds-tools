@@ -212,7 +212,7 @@ class MainFrame(wx.Frame):
     dlg = wx.MessageDialog(
         self,
         "KOS Lookup\nSee http://nrds.eu/\n"
-        "Version: 0.8b2",
+        "Version: 0.8",
         'About',
         wx.OK | wx.ICON_INFORMATION)
     dlg.ShowModal()
