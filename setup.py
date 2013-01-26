@@ -18,6 +18,7 @@ setup(windows=[{'script': 'main.py',
     options={'py2exe': {'dll_excludes': ['MSVCP90.dll'],
                         'bundle_files': 1,
                         'compressed': 1,
+                        'includes': ['dbhash'],
                         'excludes': ['unittest']}}, 
     zipfile=None)
 
