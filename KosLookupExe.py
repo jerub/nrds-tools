@@ -26,6 +26,7 @@ import ChatKosLookup
 
 
 MINUS_TAG = u'[\u2212]'  # Unicode MINUS SIGN
+KILLBOARD = "http://zkillboard.com/character/{}/"
 
 
 # Cargo-culted from:
@@ -137,16 +138,19 @@ class MainFrame(wx.Frame):
       if kos:
         play_sound = True
         new_labels.extend(
-            [(u'<font color="red">{minus} <a href="{kospath}">{pilot}</a> ({reason})</font>'.format(
+            [(u'<font color="red">{minus} <a href="{killboard}">{pilot}</a> ({reason})</font>'.format(
                 minus=MINUS_TAG,
+                killboard=KILLBOARD.format(cid),
                 kospath="http://kos.cva-eve.org/?q=" + urllib.quote(p),
                 pilot=cgi.escape(p),
                 reason=cgi.escape(reason)))
-             for (p, reason) in kos])
+             for (p, reason, cid) in kos])
       if not_kos:
         if kos:
           new_labels.append('')
-        new_labels.extend([('<font color="blue">[+] {}</font>'.format(p)) for p in not_kos])
+        new_labels.extend([('<font color="blue">[+] <a href="{killboard}">{pilot}</a></font>'.format(
+                pilot=p, killboard=KILLBOARD.format(cid)))
+                for (p, cid) in not_kos])
       if error:
         new_labels.append('Error: {}'.format(len(error)))
         new_labels.extend(error)
@@ -212,7 +216,7 @@ class MainFrame(wx.Frame):
     dlg = wx.MessageDialog(
         self,
         "KOS Lookup\nSee http://nrds.eu/\n"
-        "Version: 0.8",
+        "Version: 0.8.1",
         'About',
         wx.OK | wx.ICON_INFORMATION)
     dlg.ShowModal()
@@ -245,7 +249,7 @@ class MainFrame(wx.Frame):
           break
         except WindowsError as e:
           time.sleep(.05)
-      wx.Execute("{} /updated {}".format(realname, sys.executable))
+      wx.Execute('"{}" /updated "{}"'.format(realname, sys.executable))
       sys.exit()
       return
 
@@ -282,7 +286,7 @@ class MainFrame(wx.Frame):
         if filename not in namelist or z.read(filename) != contents:
           z.writestr(filename, contents)
 
-    wx.Execute('{} /update "{}"'.format(tmpfile.name, sys.executable))
+    wx.Execute('"{}" /update "{}"'.format(tmpfile.name, sys.executable))
     sys.exit()
 
   def CheckForUpdate(self):

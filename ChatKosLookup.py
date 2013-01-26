@@ -5,13 +5,11 @@
 import codecs
 import collections
 import datetime
-import dbhash
-import glob
+import operator
 import re
-import wx
 from evelink import api, eve
 from evelink.cache.sqlite import SqliteCache
-import sys, string, os, tempfile, time, json, urllib2, urllib
+import sys, os, tempfile, time, json, urllib2, urllib
 
 KOS_CHECKER_URL = 'http://kos.cva-eve.org/api/?c=json&type=unit&%s'
 NPC = 'npc'
@@ -28,7 +26,7 @@ class FileTailer:
       # Pilot Name >
       ur'(?P<pilot>[a-z0-9\'\-]+(?: [a-z0-9\'\-]+)?) > '
       # xxx or fff (any case), then the names of pilots
-      ur'(?:xxx|fff) (?P<names>[a-z0-9\'\- ]+)'
+      ur'(?:xxx|fff) (?P<names>[a-z0-9\'\- \r\n]+)'
       # A hash then a comment
       ur'(?:#(?P<comment>.*))?',
       re.IGNORECASE)
@@ -51,7 +49,11 @@ class FileTailer:
     self.mtime = fstat.st_mtime
     where = self.handle.tell()
     while size > where:
-      line = self.handle.readline()
+      try:
+        line = self.handle.readline()
+      except UnicodeError:
+        self.close()
+        raise
       where = self.handle.tell()
 
       answer = self.check(line)
@@ -68,18 +70,20 @@ class FileTailer:
     if not m:
       return None
 
+    logdate = m.group('date')
+    logtime = m.group('time')
     timestamp = datetime.datetime.strptime(
-        m.group('date') + ' ' + m.group('time'),
+        '{} {}'.format(logdate, logtime),
         '%Y.%m.%d %H:%M:%S')
-    time = m.group('time')
     pilot = m.group('pilot')
-    names = tuple(n.strip() for n in m.group('names').split('  '))
+    names = m.group('names').replace('  ', '\n')
+    names = tuple(n.strip() for n in names.splitlines())
     if m.group('comment'):
       suffix = m.group('comment').strip()
-      comment = '[%s] %s > %s' % (time, pilot, suffix)
+      comment = '[%s] %s > %s' % (logtime, pilot, suffix)
     else:
       suffix = None
-      comment = '[%s] %s >' % (time, pilot)
+      comment = '[%s] %s >' % (logtime, pilot)
 
     linekey = (timestamp.hour, timestamp.minute, pilot, names, suffix)
     return Entry(names, comment, linekey)
@@ -91,7 +95,7 @@ class DirectoryTailer:
     self.watchers = {}
     self.mtime = 0
 
-    for answer in iter(self.poll, None):
+    for _answer in iter(self.poll, None):
       pass
 
   def last_update(self):
@@ -112,9 +116,12 @@ class DirectoryTailer:
         if abs(self.mtime - os.stat(filename).st_mtime) < 86400:
           self.watchers[filename] = FileTailer(filename)
 
-    for watcher in self.watchers.itervalues():
-      for answer in iter(watcher.poll, None):
-        return answer
+    for filename, watcher in self.watchers.items():
+      try:
+        for answer in iter(watcher.poll, None):
+          return answer
+      except UnicodeError:
+        del self.watchers[filename]
     return None
 
 
@@ -132,30 +139,35 @@ class KosChecker:
   def koscheck(self, player):
     """Checks a given player against the KOS list, including esoteric rules."""
     kos = self.koscheck_internal(player)
-    if kos == None or kos == NPC:
-      # We were unable to find the player. Use employment history to
-      # get their current corp and look that up. If it's an NPC corp,
-      # we'll get bounced again.
-      history = self.employment_history(player)
+    cid = self.eve.character_id_from_name(player)
+    if kos not in (None, NPC):
+      return kos, cid
 
-      kos = self.koscheck_internal(history[0])
-      in_npc_corp = (kos == NPC)
+    # We were unable to find the player. Use employment history to
+    # get their current corp and look that up. If it's an NPC corp,
+    # we'll get bounced again.
+    history = self.employment_history(cid)
 
-      idx = 0
-      while kos == NPC and (idx + 1) < len(history):
-        idx = idx + 1
-        kos = self.koscheck_internal(history[idx])
+    in_npc_corp = False
+    for corp in history:
+      kos = self.koscheck_internal(corp)
+      if kos != NPC:
+        break
+      in_npc_corp = True
 
-      if in_npc_corp and kos != None and kos != NPC and kos != False:
-        kos = '%s: %s' % (LASTCORP, history[idx])
+    if kos == NPC:
+      kos = None
 
-    if kos == None or kos == NPC:
-      kos = False
+    if in_npc_corp and kos:
+      kos = '%s: %s' % (LASTCORP, kos)
 
-    return kos
+    return kos, cid
 
   def koscheck_internal(self, entity):
-    """Looks up KOS entries by directly calling the CVA KOS API."""
+    """Looks up KOS entries by directly calling the CVA KOS API.
+
+    @returns: The reason this pilot is KOS.
+    """
     cache_key = self.api._cache_key(KOS_CHECKER_URL, {'entity': entity})
 
     result = self.cache.get(cache_key)
@@ -164,7 +176,6 @@ class KosChecker:
           KOS_CHECKER_URL % urllib.urlencode({'q' : entity})))
       self.cache.put(cache_key, result, 60*60)
 
-    kos = None
     for value in result['results']:
       # Require exact match (case-insensitively).
       if value['label'].lower() != entity.lower():
@@ -172,25 +183,22 @@ class KosChecker:
       if value['type'] == 'alliance' and value['ticker'] == None:
         # Bogus alliance created instead of NPC corp.
         continue
-      kos = False
-      while True:
+      while value:
         if value['kos']:
-          kos = '%s: %s' % (value['type'], value['label'])
-        if 'npc' in value and value['npc'] and not kos:
+          return '%s: %s' % (value['type'], value['label'])
+        if 'npc' in value and value['npc']:
           # Signal that further lookup is needed of player's last corp
           return NPC
+
         if 'corp' in value:
           value = value['corp']
         elif 'alliance' in value:
           value = value['alliance']
         else:
-          return kos
-      break
-    return kos
+          return
 
-  def employment_history(self, character):
+  def employment_history(self, cid):
     """Retrieves a player's most recent corporations via EVE api."""
-    cid = self.eve.character_id_from_name(character)
     cdata = self.eve.character_info_from_id(cid)
     corps = cdata['history']
     unique_corps = []
@@ -224,13 +232,15 @@ class KosChecker:
         continue
       person = person.strip(' .')
       try:
-        result = self.koscheck(person)
-        if result != False:
-          kos.append((person, result))
+        reason, cid = self.koscheck(person)
+        if reason:
+          kos.append((person, reason, cid))
         else:
-          notkos.append(person)
+          notkos.append((person, cid))
       except:
         error.append(person)
+        raise
+    kos.sort(key=operator.itemgetter(1, 0))
     return (kos, notkos, error)
 
 
