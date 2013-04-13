@@ -1,4 +1,3 @@
-
 import tempfile
 import unittest
 import os
@@ -56,6 +55,12 @@ class TestFileTailer(unittest.TestCase):
     self.assertEquals(answer,
         Entry(('I -I',), '[00:23:56] A -A >',
 			        (0, 23, 'A -A', ('I -I',), None)))
+
+  def test_check_kos_three_names(self):
+    answer = self.ft.check("[ 2012.07.29 00:23:56 ] Admiral L Jenkins > xxx Admiral L Jenkins")
+    self.assertEquals(answer,
+        Entry(('Admiral L Jenkins',), '[00:23:56] Admiral L Jenkins >',
+        			(0, 23, 'Admiral L Jenkins', ('Admiral L Jenkins',), None)))
 
   def tearDown(self):
     self.ft.close()
