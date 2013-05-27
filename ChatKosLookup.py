@@ -24,7 +24,7 @@ class FileTailer:
       # [ date time ]
       ur'\[ (?P<date>\d+\.\d+\.\d+) (?P<time>\d+:\d+:\d+) \] '
       # Pilot Name >
-      ur'(?P<pilot>[a-z0-9\'\-]+(?: [a-z0-9\'\-]+(?: [a-z0-9\'\-]+))?) > '
+      ur'(?P<pilot>[a-z0-9\'\-]+(?: [a-z0-9\'\-]+){0,2}) > '
       # xxx or fff (any case), then the names of pilots
       ur'(?:xxx|fff) (?P<names>[a-z0-9\'\- \r\n]+)'
       # A hash then a comment
