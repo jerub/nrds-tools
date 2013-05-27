@@ -130,6 +130,12 @@ class MainFrame(wx.Frame):
       kos, not_kos, error = self.checker.koscheck_logentry(entry.pilots)
       self.status_bar.PopStatusText()
 
+      for pilot, reason, cid in kos:
+        if pilot.startswith('CCP '):
+          self.PlayKosAlertSound()
+          self.PlayKosAlertSound()
+          self.PlayKosAlertSound()
+
       new_labels = []
       if entry.comment:
         new_labels.append(entry.comment)

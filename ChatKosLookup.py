@@ -168,6 +168,9 @@ class KosChecker:
 
     @returns: The reason this pilot is KOS.
     """
+    if entity.startswith('CCP '):
+      return 'CCP'
+
     cache_key = self.api._cache_key(KOS_CHECKER_URL, {'entity': entity})
 
     result = self.cache.get(cache_key)
